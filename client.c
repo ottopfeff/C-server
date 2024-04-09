@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <process.h>
 
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Mswsock.lib")
@@ -15,9 +16,19 @@
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27015"
 
+int receiving = 1;
+SOCKET connect_socket;
+
+typedef struct threadinfo
+{
+    SOCKET socket;
+    int receiving;
+} threadinfo;
+
+void receive_messages(void *);
+
 int main()
 {
-
     WSADATA wsa_data;
     char host_name[DEFAULT_BUFLEN];
     char buffer[DEFAULT_BUFLEN];
@@ -49,7 +60,7 @@ int main()
         return 1;
     }
 
-    SOCKET connect_socket = INVALID_SOCKET;
+    connect_socket = INVALID_SOCKET;
 
     for (ptr = presult; ptr != NULL; ptr = ptr->ai_next)
     {
@@ -60,7 +71,6 @@ int main()
             WSACleanup();
             return 1;
         }
-
 
         printf("Attempting to connect to socket address\n");
         result = connect(connect_socket, ptr->ai_addr, (int)ptr->ai_addrlen);
@@ -83,7 +93,7 @@ int main()
         return 1;
     }
 
-    int len = (int)ptr->ai_addrlen;
+    _beginthread(receive_messages, 0, NULL);
 
     char message[DEFAULT_BUFLEN] = {0};
     while (1)
@@ -92,17 +102,18 @@ int main()
         printf(">");
         fgets(message, DEFAULT_BUFLEN, stdin);
         message[strcspn(message, "\n")] = 0;
-        if (strcmp(message, "/exit") == 0) 
+        if (strcmp(message, "/exit") == 0) {
+            receiving = 0;
             break;
-        
+        }
+
         if (strlen(message) != 0)
         {
             result = send(connect_socket, message, strlen(message), 0);
             if (result == SOCKET_ERROR)
             {
                 printf("send failed, error %d\n", WSAGetLastError());
-                closesocket(connect_socket);
-                WSACleanup();
+                receiving = 0;
                 break;
             }
             memset(&message, 0, DEFAULT_BUFLEN);
@@ -117,4 +128,25 @@ int main()
     getc(stdin);
 
     return 0;
+}
+
+void receive_messages(void *ignored)
+{
+    //printf("receive_messages function called\n");
+    char recv_buf[DEFAULT_BUFLEN];
+    while (receiving)
+    {
+        int result = recv(connect_socket, recv_buf, DEFAULT_BUFLEN, 0);
+        if (result > 0)
+        {
+            printf("Message received: %s\n", recv_buf);
+            memset(&recv_buf, 0, DEFAULT_BUFLEN);
+        }
+        else if (result == 0)
+        {
+            printf("Client receiving connection closing\n");
+            break;
+        }
+    }
+    //printf("recieve_messages function exiting\n");
 }

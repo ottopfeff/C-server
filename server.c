@@ -15,7 +15,10 @@
 #define DEFAULT_PORT "27015"
 #define MAX_CONNECTIONS 3
 
+int shutdown = 0;
+
 void process_connection(SOCKET *listen_socket);
+void server_terminal(void);
 
 int main()
 {
@@ -24,7 +27,6 @@ int main()
     SOCKET listen_socket = INVALID_SOCKET;
     struct addrinfo *result = NULL, hints;
     int iSendResult;
-
     int connection_count = 0;
 
 
@@ -113,6 +115,12 @@ void process_connection(SOCKET *listen_socket)
 
     int i_result;
     char recvbuf[DEFAULT_BUFLEN] = {0};
+
+    // printf("Sending test message to client\n");
+    // strcpy(recvbuf, "from server");
+    // send(client_socket, recvbuf, DEFAULT_BUFLEN, 0);
+    // memset(&recvbuf, 0, DEFAULT_BUFLEN);
+
     while (1)
     {
         // todo: find better way to clear buffer
