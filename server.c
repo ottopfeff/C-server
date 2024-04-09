@@ -13,6 +13,7 @@
 
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27015"
+#define MAX_CONNECTIONS 3
 
 void process_connection(SOCKET *listen_socket);
 
@@ -20,13 +21,12 @@ int main()
 {
 
     WSADATA socket_agent_data;
-
     SOCKET listen_socket = INVALID_SOCKET;
-
     struct addrinfo *result = NULL, hints;
-
     int iSendResult;
-    char recvbuf[DEFAULT_BUFLEN];
+
+    int connection_count = 0;
+
 
     // init winsock
     printf("Initializing WSA\n");
@@ -82,7 +82,15 @@ int main()
         return 1;
     }
 
-    process_connection(&listen_socket);
+    if (connection_count < MAX_CONNECTIONS) {
+        process_connection(&listen_socket);
+    }
+    else {
+        printf("Maximum number of connections has already been met\n");
+    }
+
+    printf("Closing listening socket\n");
+    closesocket(listen_socket);
 
     printf("Server closing...\n");
     getc(stdin);
@@ -103,9 +111,6 @@ void process_connection(SOCKET *listen_socket)
     }
     printf("Connection found, accepting...\n");
 
-    printf("Closing socket after connection was accepted\n");
-    closesocket(*listen_socket);
-
     int i_result;
     char recvbuf[DEFAULT_BUFLEN] = {0};
     while (1)
@@ -119,7 +124,7 @@ void process_connection(SOCKET *listen_socket)
         }
         else if (i_result == 0)
         {
-            printf("Connection Closing\n");
+            printf("Client connection Closing\n");
             closesocket(client_socket);
             break;
         }

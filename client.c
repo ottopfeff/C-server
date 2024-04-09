@@ -14,7 +14,6 @@
 
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27015"
-#define DEFAULT_HOST "localhost"
 
 int main()
 {
@@ -42,7 +41,6 @@ int main()
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
-    //result = getaddrinfo(DEFAULT_HOST, DEFAULT_PORT, &hints, &presult);
     result = getaddrinfo(host_name, DEFAULT_PORT, &hints, &presult);
     if (result != 0)
     {
@@ -64,7 +62,7 @@ int main()
         }
 
 
-        printf("Attempting to connect to socket address %s\n", ptr->ai_addr->sa_data);
+        printf("Attempting to connect to socket address\n");
         result = connect(connect_socket, ptr->ai_addr, (int)ptr->ai_addrlen);
         if (result == SOCKET_ERROR)
         {
@@ -92,9 +90,10 @@ int main()
     {
         // todo: find a better way to flush buffer
         printf(">");
-        // scanf("%s", &message);
         fgets(message, DEFAULT_BUFLEN, stdin);
         message[strcspn(message, "\n")] = 0;
+        if (strcmp(message, "/exit") == 0) 
+            break;
         
         if (strlen(message) != 0)
         {
@@ -110,7 +109,7 @@ int main()
         }
     }
 
-    printf("Closing socket to server");
+    printf("Closing socket to server\n");
     closesocket(connect_socket);
     WSACleanup();
 
