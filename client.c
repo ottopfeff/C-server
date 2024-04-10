@@ -17,13 +17,7 @@
 #define DEFAULT_PORT "27015"
 
 int receiving = 1;
-SOCKET connect_socket;
-
-typedef struct threadinfo
-{
-    SOCKET socket;
-    int receiving;
-} threadinfo;
+SOCKET connect_socket = INVALID_SOCKET;
 
 void receive_messages(void *);
 

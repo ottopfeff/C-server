@@ -16,6 +16,7 @@
 #define MAX_CONNECTIONS 3
 
 int shutdown = 0;
+SOCKET listen_socket = INVALID_SOCKET;
 
 void process_connection(SOCKET *listen_socket);
 void server_terminal(void);
@@ -24,7 +25,6 @@ int main()
 {
 
     WSADATA socket_agent_data;
-    SOCKET listen_socket = INVALID_SOCKET;
     struct addrinfo *result = NULL, hints;
     int iSendResult;
     int connection_count = 0;
@@ -101,13 +101,14 @@ int main()
     return 0;
 }
 
-void process_connection(SOCKET *listen_socket)
+
+void process_connection(void* ignore)
 {
-    SOCKET client_socket = accept(*listen_socket, NULL, NULL);
+    SOCKET client_socket = accept(listen_socket, NULL, NULL);
     if (client_socket == INVALID_SOCKET)
     {
         printf("accept failed, error %d\n", WSAGetLastError());
-        closesocket(*listen_socket);
+        closesocket(listen_socket);
         WSACleanup();
         return;
     }
