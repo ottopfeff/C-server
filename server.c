@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <process.h>
+#include "list.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -15,11 +16,14 @@
 #define DEFAULT_PORT "27015"
 #define MAX_CONNECTIONS 3
 
-int shutdown = 0;
+int running = 1;
 SOCKET listen_socket = INVALID_SOCKET;
+node *message_list;
+SOCKET client_sockets[MAX_CONNECTIONS] = {INVALID_SOCKET};
 
-void process_connection(SOCKET *listen_socket);
-void server_terminal(void);
+void process_connection(void *ignore);
+void accept_connections(void *ignore);
+void send_messages(void *ignore);
 
 int main()
 {
@@ -28,7 +32,6 @@ int main()
     struct addrinfo *result = NULL, hints;
     int iSendResult;
     int connection_count = 0;
-
 
     // init winsock
     printf("Initializing WSA\n");
@@ -61,7 +64,6 @@ int main()
         WSACleanup();
         return 1;
     }
-    
 
     i_result = bind(listen_socket, result->ai_addr, (int)result->ai_addrlen);
     if (i_result == SOCKET_ERROR)
@@ -84,10 +86,14 @@ int main()
         return 1;
     }
 
-    if (connection_count < MAX_CONNECTIONS) {
+    _beginthread(send_messages, 0, NULL);
+
+    if (connection_count < MAX_CONNECTIONS)
+    {
         process_connection(&listen_socket);
     }
-    else {
+    else
+    {
         printf("Maximum number of connections has already been met\n");
     }
 
@@ -101,8 +107,34 @@ int main()
     return 0;
 }
 
+void send_messages(void *ignore)
+{
+    while (running)
+    {
+        if (message_list != NULL)
+        {
+            for (int i = 0; i < MAX_CONNECTIONS; i++)
+            {
+                printf("test1\n");
+                node *message_node = message_list;
+                message_list = message_list->next;
+                if (client_sockets[i] != INVALID_SOCKET)
+                {
+                    int result = send(client_sockets[i], message_node->message, strlen(message_node->message), 0);
 
-void process_connection(void* ignore)
+                    if (result == SOCKET_ERROR)
+                    {
+                        printf("send failed, error %d\n", WSAGetLastError());
+                    }
+                }
+                printf("test2\n");
+                //free_node(message_node);
+            }
+        }
+    }
+}
+
+void process_connection(void *ignore)
 {
     SOCKET client_socket = accept(listen_socket, NULL, NULL);
     if (client_socket == INVALID_SOCKET)
@@ -113,6 +145,7 @@ void process_connection(void* ignore)
         return;
     }
     printf("Connection found, accepting...\n");
+    client_sockets[0] = client_socket;
 
     int i_result;
     char recvbuf[DEFAULT_BUFLEN] = {0};
@@ -122,13 +155,14 @@ void process_connection(void* ignore)
     // send(client_socket, recvbuf, DEFAULT_BUFLEN, 0);
     // memset(&recvbuf, 0, DEFAULT_BUFLEN);
 
-    while (1)
+    while (running)
     {
         // todo: find better way to clear buffer
         i_result = recv(client_socket, recvbuf, DEFAULT_BUFLEN, 0);
         if (i_result > 0)
         {
             printf("Message received: %s\n", recvbuf);
+            append_node(&message_list, recvbuf);
             memset(&recvbuf, 0, DEFAULT_BUFLEN);
         }
         else if (i_result == 0)
