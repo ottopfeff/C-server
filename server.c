@@ -17,13 +17,15 @@
 #define MAX_CONNECTIONS 3
 
 int running = 1;
+int connection_count = 0;
 SOCKET listen_socket = INVALID_SOCKET;
-node *message_list;
+node *message_list = NULL;
+node *client_socket_list = NULL;
 SOCKET client_sockets[MAX_CONNECTIONS] = {INVALID_SOCKET};
 
-void process_connection(void *ignore);
-void accept_connections(void *ignore);
+void manage_connections(void *ignore);
 void send_messages(void *ignore);
+void process_connection(void *ignore);
 
 int main()
 {
@@ -31,7 +33,6 @@ int main()
     WSADATA socket_agent_data;
     struct addrinfo *result = NULL, hints;
     int iSendResult;
-    int connection_count = 0;
 
     // init winsock
     printf("Initializing WSA\n");
@@ -87,18 +88,34 @@ int main()
     }
 
     _beginthread(send_messages, 0, NULL);
+    _beginthread(manage_connections, 0, NULL);
 
-    if (connection_count < MAX_CONNECTIONS)
+    char buffer[DEFAULT_BUFLEN];
+    while (running)
     {
-        process_connection(NULL);
-    }
-    else
-    {
-        printf("Maximum number of connections has already been met\n");
+        fgets(buffer, DEFAULT_BUFLEN, stdin);
+        buffer[strcspn(buffer, "\n")] = 0;
+        if (strcmp(buffer, "/exit") == 0)
+        {
+            running = 0;
+        }
+        if (strcmp(buffer, "/sockets") == 0)
+        {
+            printf("********************************\n");
+            print_socket_list(client_socket_list);
+            printf("********************************\n");
+        }
+        memset(&buffer, 0, DEFAULT_BUFLEN);
     }
 
     printf("Closing listening socket\n");
     closesocket(listen_socket);
+
+    printf("Closing client sockets\n");
+    for (node *socket_node = client_socket_list; socket_node != NULL; socket_node = socket_node->next) {
+        socket_info* info = socket_node->item;
+        closesocket(info->socket);
+    }
 
     printf("Server closing...\n");
     getc(stdin);
@@ -113,17 +130,18 @@ void send_messages(void *ignore)
     {
         if (message_list != NULL)
         {
-            node* message_node = message_list;
+            node *message_node = message_list;
             message_list = message_list->next;
-            for (int i = 0; i < MAX_CONNECTIONS; i++)
+            for (node *socket_node = client_socket_list; socket_node != NULL; socket_node = socket_node->next)
             {
-                if (client_sockets[i] != INVALID_SOCKET)
+                SOCKET *socket_ptr = (SOCKET *)socket_node->item;
+                if (socket_ptr != NULL && *socket_ptr != INVALID_SOCKET)
                 {
-                    int result = send(client_sockets[i], (char*)message_node->item, strlen((char*)message_node->item), 0);
+                    int result = send(*socket_ptr, (char *)message_node->item, strlen((char *)message_node->item), 0);
 
-                    if (result == SOCKET_ERROR)
+                    if (result == SOCKET_ERROR && running)
                     {
-                        printf("send failed, error %d\n", WSAGetLastError());
+                            printf("send failed, error %d\n", WSAGetLastError());
                     }
                 }
             }
@@ -132,26 +150,52 @@ void send_messages(void *ignore)
     }
 }
 
+void manage_connections(void *ignore)
+{
+    while (running)
+    {
+        if (connection_count < MAX_CONNECTIONS)
+        {
+            SOCKET client_socket = accept(listen_socket, NULL, NULL);
+            if (client_socket == INVALID_SOCKET)
+            {
+                if (running)
+                    printf("accept failed, error %d\n", WSAGetLastError());
+                continue;
+            }
+            printf("Connection found, accepting...\n");
+            append_socket_node(&client_socket_list, client_socket);
+
+            _beginthread(process_connection, 0, NULL);
+        }
+    }
+}
+
 void process_connection(void *ignore)
 {
-    SOCKET client_socket = accept(listen_socket, NULL, NULL);
+    SOCKET client_socket = INVALID_SOCKET;
+    for (node *socket_node = client_socket_list; socket_node != NULL; socket_node = socket_node->next)
+    {
+        socket_info *socket_info = socket_node->item;
+        if (socket_info->in_use)
+        {
+            continue;
+        }
+        else
+        {
+            client_socket = socket_info->socket;
+            socket_info->in_use = 1;
+        }
+    }
     if (client_socket == INVALID_SOCKET)
     {
-        printf("accept failed, error %d\n", WSAGetLastError());
-        closesocket(listen_socket);
-        WSACleanup();
+        printf("process_connection thread could not find a valid socket");
         return;
     }
-    printf("Connection found, accepting...\n");
-    client_sockets[0] = client_socket;
+    connection_count++;
 
     int i_result;
     char recvbuf[DEFAULT_BUFLEN] = {0};
-
-    // printf("Sending test message to client\n");
-    // strcpy(recvbuf, "from server");
-    // send(client_socket, recvbuf, DEFAULT_BUFLEN, 0);
-    // memset(&recvbuf, 0, DEFAULT_BUFLEN);
 
     while (running)
     {
@@ -183,5 +227,10 @@ void process_connection(void *ignore)
             break;
         }
     }
+    if (delete_socket_node(&client_socket_list, client_socket))
+        ;
+    printf("Removed socket from list\n");
+
+    connection_count--;
     return;
 }
