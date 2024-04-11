@@ -50,8 +50,8 @@ void append_message_node(node **list, char* message)
     }
 }
 
-void append_socket_node(node **list, SOCKET message) {
-        node* new = create_socket_node((void* )socket);
+void append_socket_node(node **list, SOCKET socket) {
+        node* new = create_socket_node(socket);
 
     node *curr = *list;
     if (curr == NULL)
