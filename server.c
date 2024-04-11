@@ -90,7 +90,7 @@ int main()
 
     if (connection_count < MAX_CONNECTIONS)
     {
-        process_connection(&listen_socket);
+        process_connection(NULL);
     }
     else
     {
@@ -113,23 +113,21 @@ void send_messages(void *ignore)
     {
         if (message_list != NULL)
         {
+            node* message_node = message_list;
+            message_list = message_list->next;
             for (int i = 0; i < MAX_CONNECTIONS; i++)
             {
-                printf("test1\n");
-                node *message_node = message_list;
-                message_list = message_list->next;
                 if (client_sockets[i] != INVALID_SOCKET)
                 {
-                    int result = send(client_sockets[i], message_node->message, strlen(message_node->message), 0);
+                    int result = send(client_sockets[i], (char*)message_node->item, strlen((char*)message_node->item), 0);
 
                     if (result == SOCKET_ERROR)
                     {
                         printf("send failed, error %d\n", WSAGetLastError());
                     }
                 }
-                printf("test2\n");
-                //free_node(message_node);
             }
+            free_node(message_node);
         }
     }
 }
@@ -162,7 +160,7 @@ void process_connection(void *ignore)
         if (i_result > 0)
         {
             printf("Message received: %s\n", recvbuf);
-            append_node(&message_list, recvbuf);
+            append_message_node(&message_list, recvbuf);
             memset(&recvbuf, 0, DEFAULT_BUFLEN);
         }
         else if (i_result == 0)
