@@ -54,6 +54,11 @@ int main()
         return 1;
     }
 
+    struct sockaddr_in client_info = {0};
+    int addrsize = sizeof(client_info);
+
+    // getnameinfo((struct sockaddr* ) &result, sizeof(struct sockaddr), host_name, NI_MAXHOST, test, NI_MAXSERV, NI_NUMERICHOST);
+
     connect_socket = INVALID_SOCKET;
 
     for (ptr = presult; ptr != NULL; ptr = ptr->ai_next)
@@ -86,6 +91,10 @@ int main()
         WSACleanup();
         return 1;
     }
+    
+    //getpeername(connect_socket, (struct sockaddr *)&client_info, (int*)sizeof(client_info));
+    //char *ip = inet_ntoa(client_info.sin_addr);
+    //printf("%s\n", ip);
 
     _beginthread(receive_messages, 0, NULL);
 
@@ -96,9 +105,25 @@ int main()
         printf(">");
         fgets(message, DEFAULT_BUFLEN, stdin);
         message[strcspn(message, "\n")] = 0;
-        if (strcmp(message, "/exit") == 0) {
+        if (strcmp(message, "/exit") == 0)
+        {
             receiving = 0;
             break;
+        }
+        else if (strcmp(message, "/serverip") == 0)
+        {
+            struct sockaddr server_info;
+            int server_info_length = sizeof(server_info);
+            getpeername(connect_socket, &server_info, &server_info_length);
+            long unsigned int ipbuflen;
+            char ipbuf[50] = {0};
+            int res = WSAAddressToStringA(&server_info, 50, NULL, ipbuf, &ipbuflen);
+            if (res != 0) {
+                printf("WSAAddressToStringA failed, error %d\n", WSAGetLastError());
+            }
+            else {
+                printf("SERVER IP: %s\n", ipbuf);
+            }
         }
 
         if (strlen(message) != 0)
@@ -126,7 +151,7 @@ int main()
 
 void receive_messages(void *ignored)
 {
-    //printf("receive_messages function called\n");
+    // printf("receive_messages function called\n");
     char recv_buf[DEFAULT_BUFLEN];
     while (receiving)
     {
@@ -142,5 +167,5 @@ void receive_messages(void *ignored)
             break;
         }
     }
-    //printf("recieve_messages function exiting\n");
+    // printf("recieve_messages function exiting\n");
 }

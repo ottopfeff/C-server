@@ -1,16 +1,13 @@
-#define _WIN32_WINNT 0x0501
+#define _WIN32_WINNT NTDDI_VISTA
 #undef UNICODE
 #define WIN32_LEAN_AND_MEAN
 
-#include <Windows.h>
-#include <WinSock2.h>
-#include <WS2tcpip.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <winsock2.h>
+#include <Ws2tcpip.h>
 #include <process.h>
 #include "list.h"
-
-#pragma comment(lib, "Ws2_32.lib")
 
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27015"
@@ -29,7 +26,6 @@ void process_connection(void *ignore);
 
 int main()
 {
-
     WSADATA socket_agent_data;
     struct addrinfo *result = NULL, hints;
     int iSendResult;
@@ -75,7 +71,6 @@ int main()
         WSACleanup();
         return 1;
     }
-    freeaddrinfo(result);
 
     printf("Listening on port %s\n", DEFAULT_PORT);
     i_result = listen(listen_socket, SOMAXCONN);
@@ -99,11 +94,26 @@ int main()
         {
             running = 0;
         }
-        if (strcmp(buffer, "/sockets") == 0)
+        else if (strcmp(buffer, "/sockets") == 0)
         {
             printf("********************************\n");
             print_socket_list(client_socket_list);
             printf("********************************\n");
+        }
+        else if (strcmp(buffer, "/ip") == 0)
+        {
+            struct sockaddr server_info;
+            int server_info_length = sizeof(server_info);
+            getsockname(listen_socket, &server_info, &server_info_length);
+            long unsigned int ipbuflen;
+            char ipbuf[50] = {0};
+            int res = WSAAddressToStringA(&server_info, 50, NULL, ipbuf, &ipbuflen);
+            if (res != 0) {
+                printf("WSAAddressToStringA failed, error %d\n", WSAGetLastError());
+            }
+            else {
+                printf("IP: %s\n", ipbuf);
+            }
         }
         memset(&buffer, 0, DEFAULT_BUFLEN);
     }
@@ -112,10 +122,13 @@ int main()
     closesocket(listen_socket);
 
     printf("Closing client sockets\n");
-    for (node *socket_node = client_socket_list; socket_node != NULL; socket_node = socket_node->next) {
-        socket_info* info = socket_node->item;
+    for (node *socket_node = client_socket_list; socket_node != NULL; socket_node = socket_node->next)
+    {
+        socket_info *info = (socket_info*)socket_node->item;
         closesocket(info->socket);
+        //free socket nodes...
     }
+    freeaddrinfo(result);
 
     printf("Server closing...\n");
     getc(stdin);
@@ -141,7 +154,7 @@ void send_messages(void *ignore)
 
                     if (result == SOCKET_ERROR && running)
                     {
-                            printf("send failed, error %d\n", WSAGetLastError());
+                        printf("send failed, error %d\n", WSAGetLastError());
                     }
                 }
             }
@@ -156,6 +169,9 @@ void manage_connections(void *ignore)
     {
         if (connection_count < MAX_CONNECTIONS)
         {
+            //struct sockaddr_in client_info;
+            //int addrsize = sizeof(client_info);
+            //SOCKET client_socket = accept(listen_socket, (struct sockaddr *)&client_info, &addrsize);
             SOCKET client_socket = accept(listen_socket, NULL, NULL);
             if (client_socket == INVALID_SOCKET)
             {
@@ -163,8 +179,11 @@ void manage_connections(void *ignore)
                     printf("accept failed, error %d\n", WSAGetLastError());
                 continue;
             }
-            printf("Connection found, accepting...\n");
+
+            // char *ip = inet_ntoa(client_info.sin_addr);
+            // printf("Connection found from %s, accepting...\n", ip);
             append_socket_node(&client_socket_list, client_socket);
+            // freeaddrinfo((struct sockaddr *)&client_info);
 
             _beginthread(process_connection, 0, NULL);
         }
@@ -176,15 +195,15 @@ void process_connection(void *ignore)
     SOCKET client_socket = INVALID_SOCKET;
     for (node *socket_node = client_socket_list; socket_node != NULL; socket_node = socket_node->next)
     {
-        socket_info *socket_info = socket_node->item;
-        if (socket_info->in_use)
+        socket_info *info = (socket_info*)socket_node->item;
+        if (info->in_use)
         {
             continue;
         }
         else
         {
-            client_socket = socket_info->socket;
-            socket_info->in_use = 1;
+            client_socket = info->socket;
+            info->in_use = 1;
         }
     }
     if (client_socket == INVALID_SOCKET)
@@ -227,8 +246,7 @@ void process_connection(void *ignore)
             break;
         }
     }
-    if (delete_socket_node(&client_socket_list, client_socket))
-        ;
+    if (delete_socket_node(&client_socket_list, client_socket));
     printf("Removed socket from list\n");
 
     connection_count--;

@@ -2,47 +2,47 @@
 
 node *create_message_node(char *message)
 {
-    node *new = (node *)malloc(sizeof(node));
+    node *new_node = (node *)malloc(sizeof(node));
 
     int len = strlen(message);
     char *new_message = (char *)malloc(len + 1);
     strcpy(new_message, message);
     new_message[len + 1] = 0;
 
-    new->item = new_message;
-    new->next = NULL;
+    new_node->item = new_message;
+    new_node->next = NULL;
 
-    return new;
+    return new_node;
 }
 
 node *create_socket_node(SOCKET socket)
 {
-    node *new = (node *)malloc(sizeof(node));
+    node *new_node = (node *)malloc(sizeof(node));
 
-    socket_info *socket_info = malloc(sizeof(socket_info));
-    socket_info->socket = socket;
-    socket_info->in_use = 0;
+    socket_info *info = (socket_info*)malloc(sizeof(socket_info));
+    info->socket = socket;
+    info->in_use = 0;
 
-    new->item = socket_info;
-    new->next = NULL;
+    new_node->item = (void*)info;
+    new_node->next = NULL;
 
-    return new;
+    return new_node;
 }
 
 void append_message_node(node **list, char *message)
 {
-    node *new = create_message_node((void *)message);
+    node *new_node = create_message_node(message);
 
     node *curr = *list;
     if (curr == NULL)
     {
-        *list = new;
+        *list = new_node;
     }
     while (curr)
     {
         if (curr->next == NULL)
         {
-            curr->next = new;
+            curr->next = new_node;
             return;
         }
         else
@@ -54,18 +54,18 @@ void append_message_node(node **list, char *message)
 
 void append_socket_node(node **list, SOCKET socket)
 {
-    node *new = create_socket_node(socket);
+    node *new_node = create_socket_node(socket);
 
     node *curr = *list;
     if (curr == NULL)
     {
-        *list = new;
+        *list = new_node;
     }
     while (curr)
     {
         if (curr->next == NULL)
         {
-            curr->next = new;
+            curr->next = new_node;
             return;
         }
         else
@@ -83,7 +83,7 @@ int delete_socket_node(node **list, SOCKET socket)
     while (curr != NULL)
     {
         socket_info *info = (socket_info *)curr->item;
-        if (info->socket = socket)
+        if (info->socket == socket)
         {
             if (prev == NULL)
                 *list = curr->next;
@@ -99,10 +99,12 @@ int delete_socket_node(node **list, SOCKET socket)
     return 0;
 }
 
-void print_socket_list(node *list) {
-    node* curr = list;
-    
-    while (curr) {
+void print_socket_list(node *list)
+{
+    node *curr = list;
+
+    while (curr)
+    {
         socket_info *info = (socket_info *)curr->item;
         printf("SOCKET %d, IN_USE: %d\n", info->socket, info->in_use);
         curr = curr->next;

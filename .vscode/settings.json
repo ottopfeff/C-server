@@ -1,6 +1,11 @@
 {
     "files.associations": {
         "windows.h": "c",
-        "ws2tcpip.h": "c"
+        "ws2tcpip.h": "c",
+        "process.h": "c",
+        "winsock2.h": "c",
+        "stdlib.h": "c",
+        "sdkddkver.h": "c",
+        "list.h": "c"
     }
 }
