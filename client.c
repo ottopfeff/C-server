@@ -87,7 +87,8 @@ int main()
 
     if (connect_socket == INVALID_SOCKET)
     {
-        printf("unable to connect");
+        printf("unable to connect, error %d\n", WSAGetLastError());
+
         WSACleanup();
         return 1;
     }
@@ -124,6 +125,7 @@ int main()
             else {
                 printf("SERVER IP: %s\n", ipbuf);
             }
+            continue;
         }
 
         if (strlen(message) != 0)
